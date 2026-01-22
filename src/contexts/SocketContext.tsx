@@ -39,23 +39,32 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const newSocket = io(import.meta.env.VITE_SOCKET_URL, {
-      transports: ["websocket"],
+      transports: ['websocket'],
     });
 
     setSocket(newSocket);
 
-    newSocket.on('connect', () => setIsConnected(true));
-    newSocket.on('disconnect', () => setIsConnected(false));
+    newSocket.on('connect', () => {
+      console.log('Socket connected');
+      setIsConnected(true);
+    });
 
+    newSocket.on('disconnect', () => {
+      console.log('Socket disconnected');
+      setIsConnected(false);
+    });
+
+    // ================= INIT =================
     newSocket.on('init', (data) => {
-      if (data.userId && data.state) {
+      if (data?.userId && data?.state) {
         setUserId(data.userId);
         setQuizState(data.state);
       } else {
-        setQuizState({ type: 'room_not_found' });
+        setQuizState({ type: 'not_started' });
       }
     });
 
+    // ================= QUESTION =================
     newSocket.on('problem', (data) => {
       setQuizState((prev: any) => ({
         type: 'question',
@@ -64,14 +73,15 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }));
     });
 
+    // ================= LEADERBOARD =================
     newSocket.on('leaderboard', (data) => {
-      setQuizState((prev: any) => ({
-        ...prev,
+      setQuizState({
         type: 'leaderboard',
         leaderboard: data.leaderboard,
-      }));
+      });
     });
 
+    // ================= QUIZ ENDED =================
     newSocket.on('ended', (data) => {
       setQuizState({
         type: 'ended',
@@ -79,44 +89,63 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     });
 
+    // 🔥🔥🔥 RESET EVENT (IMPORTANT FIX)
+    newSocket.on('reset', () => {
+      console.log('Quiz reset received from server');
+
+      setQuizState({ type: 'not_started' });
+      setUserId(null);
+      setCurrentRoomId(null);
+    });
+
     return () => {
+      newSocket.removeAllListeners();
       newSocket.close();
     };
   }, []);
 
+  // ================= JOIN ROOM =================
   const joinRoom = (roomId: string, userName: string) => {
-    socket?.emit('join', { roomId, name: userName });
+    if (!socket) return;
+
+    socket.emit('join', { roomId, name: userName });
     setCurrentRoomId(roomId);
   };
 
+  // ================= CREATE ROOM =================
   const createRoom = (userName: string) => {
+    if (!socket) return;
+
     const roomId = Math.random().toString(36).substring(2, 10);
-    socket?.emit('join', { roomId, name: userName });
+    socket.emit('join', { roomId, name: userName });
     setCurrentRoomId(roomId);
   };
 
+  // ================= LEAVE ROOM =================
   const leaveRoom = () => {
-    if (socket && currentRoomId) {
-      socket.emit('leave', { roomId: currentRoomId });
-      setCurrentRoomId(null);
-      setUserId(null);
-      setQuizState(null);
-    }
+    if (!socket || !currentRoomId) return;
+
+    socket.emit('leave', { roomId: currentRoomId });
+
+    setCurrentRoomId(null);
+    setUserId(null);
+    setQuizState(null);
   };
 
+  // ================= SUBMIT ANSWER =================
   const submitAnswer = (
     roomId: string,
     problemId: string,
     optionSelected: AllowedSubmissions
   ) => {
-    if (socket && userId) {
-      socket.emit('submit', {
-        roomId,
-        problemId,
-        userId,
-        submission: optionSelected,
-      });
-    }
+    if (!socket || !userId) return;
+
+    socket.emit('submit', {
+      roomId,
+      problemId,
+      userId,
+      submission: optionSelected,
+    });
   };
 
   return (
