@@ -10,7 +10,7 @@ import { useSocket } from '../contexts/SocketContext';
 import type { AllowedSubmissions } from '../types/types';
 
 export const Admin = () => {
-
+    
   const { socket, isConnected } = useSocket();
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -19,7 +19,7 @@ export const Admin = () => {
   const [activeQuizzes, setActiveQuizzes] = useState<string[]>([]);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
-
+  
   // Problem creation form
   const [problemTitle, setProblemTitle] = useState('');
   const [problemDescription, setProblemDescription] = useState('');
@@ -79,9 +79,7 @@ export const Admin = () => {
         socket.off('error');
       };
     }
-  }, [socket, isAuthenticated]);
-
-  const handleLogin = () => {
+  }, [socket, isAuthenticated]);  const handleLogin = () => {
     if (socket && password.trim()) {
       console.log('Attempting admin login with password:', password.trim());
       socket.emit('joinAdmin', { password: password.trim() });
@@ -112,7 +110,7 @@ export const Admin = () => {
         })).filter(option => option.title !== ''),
         answer: correctAnswer
       };
-
+      
       if (problem.options.length < 2) {
         setError('Please provide at least 2 options');
         return;
@@ -229,8 +227,311 @@ export const Admin = () => {
             <TabsTrigger value="control">Quiz Control</TabsTrigger>
             <TabsTrigger value="monitor">Live Monitor</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="quiz" className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Create New Quiz</CardTitle>
+                  <CardDescription>Set up a new quiz room</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="room-id">Room ID</Label>
+                    <Input
+                      id="room-id"
+                      placeholder="Enter unique room ID (e.g., quiz-001)"
+                      value={roomId}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRoomId(e.target.value)}
+                    />
+                  </div>
+                  <Button 
+                    onClick={handleCreateQuiz} 
+                    disabled={!roomId.trim()}
+                    className="w-full"
+                  >
+                    Create Quiz Room
+                  </Button>
+                </CardContent>
+              </Card>
 
-          {/* Remaining UI continues exactly same */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Active Quizzes</CardTitle>
+                  <CardDescription>Manage existing quiz rooms</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {activeQuizzes.length === 0 ? (
+                    <p className="text-gray-500 text-center py-4">No active quizzes</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {activeQuizzes.map((quiz) => (
+                        <div key={quiz} className="flex items-center justify-between p-2 border rounded">
+                          <span className="font-medium">{quiz}</span>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => setRoomId(quiz)}
+                          >
+                            Select
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="problems" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Problem</CardTitle>
+                <CardDescription>
+                  {roomId ? `Adding to room: ${roomId}` : 'Select a room ID first'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!roomId && (
+                  <Alert className="border-yellow-200 bg-yellow-50">
+                    <AlertDescription className="text-yellow-700">
+                      Please select or create a room first in the Quiz Management tab
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="problem-title">Problem Title</Label>
+                  <Input
+                    id="problem-title"
+                    placeholder="Enter a clear, concise question title"
+                    value={problemTitle}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProblemTitle(e.target.value)}
+                    disabled={!roomId}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="problem-description">Problem Description</Label>
+                  <Input
+                    id="problem-description"
+                    placeholder="Enter detailed question description"
+                    value={problemDescription}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setProblemDescription(e.target.value)}
+                    disabled={!roomId}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Answer Options</Label>
+                  {options.map((option, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <span className="w-8 text-sm font-medium">
+                        {String.fromCharCode(65 + index)}.
+                      </span>
+                      <Input
+                        placeholder={`Option ${index + 1}`}
+                        value={option}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateOption(index, e.target.value)}
+                        disabled={!roomId}
+                      />
+                      <Button
+                        variant={correctAnswer === index ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setCorrectAnswer(index as AllowedSubmissions)}
+                        disabled={!roomId}
+                      >
+                        {correctAnswer === index ? '✓ Correct' : 'Mark Correct'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={handleCreateProblem} 
+                    disabled={!roomId.trim() || !problemTitle.trim() || !problemDescription.trim() || options.filter(o => o.trim()).length < 2}
+                    className="flex-1"
+                  >
+                    Add Problem to Quiz
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="control" className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Quiz Controls</CardTitle>
+                  <CardDescription>
+                    {roomId ? `Controlling room: ${roomId}` : 'Select a room to control'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!roomId && (
+                    <Alert className="border-yellow-200 bg-yellow-50">
+                      <AlertDescription className="text-yellow-700">
+                        Please select a room first
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      onClick={handleStartQuiz} 
+                      disabled={!roomId.trim()}
+                      size="lg"
+                      className="w-full"
+                    >
+                      Start Quiz
+                    </Button>
+                    
+                    <Button 
+                      onClick={handleNext} 
+                      disabled={!roomId.trim()}
+                      size="lg"
+                      variant="outline"
+                      className="w-full"
+                    >
+                      Next Question
+                    </Button>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleGetQuizState} 
+                    disabled={!roomId.trim()}
+                    variant="secondary"
+                    className="w-full"
+                  >
+                    Refresh Quiz State
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Current Quiz State</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {currentQuizState ? (
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="font-medium">Status:</span>
+                        <Badge variant={currentQuizState.type === 'question' ? 'default' : 'secondary'}>
+                          {currentQuizState.type || 'Unknown'}
+                        </Badge>
+                      </div>
+                      {currentQuizState.problem && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="font-medium">Current Problem:</span>
+                            <span>{currentQuizState.problem.title}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="font-medium">Options:</span>
+                            <span>{currentQuizState.problem.options?.length || 0}</span>
+                          </div>
+                        </>
+                      )}
+                      {currentQuizState.leaderboard && (
+                        <div className="flex justify-between">
+                          <span className="font-medium">Players:</span>
+                          <span>{currentQuizState.leaderboard.length}</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 text-center py-4">No quiz state available</p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="monitor" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Live Quiz Monitor</CardTitle>
+                <CardDescription>
+                  Real-time monitoring of quiz activity
+                  {roomId && ` for room: ${roomId}`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!roomId ? (
+                  <Alert className="border-yellow-200 bg-yellow-50">
+                    <AlertDescription className="text-yellow-700">
+                      Please select a room to monitor
+                    </AlertDescription>
+                  </Alert>
+                ) : currentQuizState ? (
+                  <div className="space-y-4">
+                    {currentQuizState.type === 'question' && currentQuizState.problem && (
+                      <div className="border rounded p-4 bg-blue-50">
+                        <h3 className="font-semibold text-lg mb-2">Active Question</h3>
+                        <p className="font-medium">{currentQuizState.problem.title}</p>
+                        <p className="text-gray-600 mb-3">{currentQuizState.problem.description}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {currentQuizState.problem.options?.map((option: any, index: number) => (
+                            <div key={index} className="flex items-center p-2 border rounded">
+                              <span className="font-medium mr-2">{String.fromCharCode(65 + index)}.</span>
+                              <span>{option.title}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 text-sm text-gray-600">
+                          Correct Answer: {String.fromCharCode(65 + (currentQuizState.problem.answer || 0))}
+                        </div>
+                      </div>
+                    )}
+
+                    {currentQuizState.type === 'leaderboard' && currentQuizState.leaderboard && (
+                      <div className="border rounded p-4 bg-green-50">
+                        <h3 className="font-semibold text-lg mb-3">Current Leaderboard</h3>
+                        <div className="space-y-2">
+                          {currentQuizState.leaderboard
+                            .sort((a: any, b: any) => b.points - a.points)
+                            .map((player: any, index: number) => (
+                            <div key={player.id} className="flex items-center justify-between p-2 border rounded bg-white">
+                              <div className="flex items-center">
+                                <Badge variant={index < 3 ? 'default' : 'secondary'} className="mr-2">
+                                  #{index + 1}
+                                </Badge>
+                                <span className="font-medium">{player.name}</span>
+                              </div>
+                              <span className="font-bold">{player.points} pts</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {currentQuizState.type === 'not_started' && (
+                      <div className="border rounded p-4 bg-gray-50 text-center">
+                        <p className="text-gray-600">Quiz hasn't started yet</p>
+                        <Button onClick={handleStartQuiz} className="mt-2">
+                          Start Quiz
+                        </Button>
+                      </div>
+                    )}
+
+                    {currentQuizState.type === 'ended' && (
+                      <div className="border rounded p-4 bg-red-50 text-center">
+                        <p className="text-red-600 font-medium">Quiz has ended</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">
+                    Click "Refresh Quiz State" to load current status
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </div>
