@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState } from 'react';
-import { io, Socket } from 'socket.io-client';
-import type { User, AllowedSubmissions } from '../types/types';
+import { createContext, useContext, useEffect, useState } from "react";
+import { io, Socket } from "socket.io-client";
+import type { User, AllowedSubmissions } from "../types/types";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -9,93 +9,90 @@ interface SocketContextType {
   userId: string | null;
   currentRoomId: string | null;
   isConnected: boolean;
-  joinRoom: (roomId: string, userName: string) => void;
-  leaveRoom: () => void;
+
+  joinRoom: (
+    roomId: string,
+    userName: string,
+    onSuccess: () => void
+  ) => void;
+
   submitAnswer: (
     roomId: string,
     problemId: string,
     optionSelected: AllowedSubmissions
   ) => void;
-  createRoom: (userName: string) => void;
+
+  leaveRoom: () => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
 export const useSocket = () => {
   const context = useContext(SocketContext);
-  if (!context) {
-    throw new Error('useSocket must be used within SocketProvider');
-  }
+  if (!context) throw new Error("useSocket must be used inside provider");
   return context;
 };
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [quizState, setQuizState] = useState<any | null>(null);
+
+  const [quizState, setQuizState] = useState<any>({
+    type: "not_started",
+  });
+
   const [user] = useState<User | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
+
   const [isConnected, setIsConnected] = useState(false);
 
+  // ================= SOCKET INIT =================
   useEffect(() => {
     const newSocket = io(import.meta.env.VITE_SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: 10,
     });
 
     setSocket(newSocket);
 
-    newSocket.on('connect', () => {
-      console.log('Socket connected');
-      setIsConnected(true);
-    });
+    newSocket.on("connect", () => setIsConnected(true));
+    newSocket.on("disconnect", () => setIsConnected(false));
 
-    newSocket.on('disconnect', () => {
-      console.log('Socket disconnected');
-      setIsConnected(false);
-    });
-
-    // ================= INIT =================
-    newSocket.on('init', (data) => {
-      if (data?.userId && data?.state) {
-        setUserId(data.userId);
-        setQuizState(data.state);
-      } else {
-        setQuizState({ type: 'not_started' });
-      }
-    });
-
-    // ================= QUESTION =================
-    newSocket.on('problem', (data) => {
+    // ✅ QUESTION EVENT (KEEP PLAYERS)
+    newSocket.on("problem", (data) => {
       setQuizState((prev: any) => ({
-        type: 'question',
+        ...prev,
+        type: "question",
         problem: data.problem,
-        leaderboard: prev?.leaderboard || [],
       }));
     });
 
-    // ================= LEADERBOARD =================
-    newSocket.on('leaderboard', (data) => {
+    // ✅ LEADERBOARD EVENT
+    newSocket.on("leaderboard", (data) => {
       setQuizState({
-        type: 'leaderboard',
+        type: "leaderboard",
         leaderboard: data.leaderboard,
+        winner: data.winner || null,
       });
     });
 
-    // ================= QUIZ ENDED =================
-    newSocket.on('ended', (data) => {
+    // ✅ WINNER EVENT
+    newSocket.on("winner", (data) => {
       setQuizState({
-        type: 'ended',
+        type: "ended",
         leaderboard: data.leaderboard,
+        winner: data.winner,
       });
     });
 
-    // 🔥🔥🔥 RESET EVENT (IMPORTANT FIX)
-    newSocket.on('reset', () => {
-      console.log('Quiz reset received from server');
-
-      setQuizState({ type: 'not_started' });
-      setUserId(null);
-      setCurrentRoomId(null);
+    // ✅ QUIZ ENDED EVENT
+    newSocket.on("ended", (data) => {
+      setQuizState({
+        type: "ended",
+        leaderboard: data.leaderboard,
+        winner: data.winner || null,
+      });
     });
 
     return () => {
@@ -104,32 +101,23 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  // ================= JOIN ROOM =================
-  const joinRoom = (roomId: string, userName: string) => {
+  // ================= JOIN ROOM FIX =================
+  const joinRoom = (
+    roomId: string,
+    userName: string,
+    onSuccess: () => void
+  ) => {
     if (!socket) return;
 
-    socket.emit('join', { roomId, name: userName });
-    setCurrentRoomId(roomId);
-  };
+    socket.emit("join", { roomId, name: userName });
 
-  // ================= CREATE ROOM =================
-  const createRoom = (userName: string) => {
-    if (!socket) return;
+    socket.once("init", (data) => {
+      setUserId(data.userId);
+      setQuizState(data.state);
+      setCurrentRoomId(roomId);
 
-    const roomId = Math.random().toString(36).substring(2, 10);
-    socket.emit('join', { roomId, name: userName });
-    setCurrentRoomId(roomId);
-  };
-
-  // ================= LEAVE ROOM =================
-  const leaveRoom = () => {
-    if (!socket || !currentRoomId) return;
-
-    socket.emit('leave', { roomId: currentRoomId });
-
-    setCurrentRoomId(null);
-    setUserId(null);
-    setQuizState(null);
+      onSuccess();
+    });
   };
 
   // ================= SUBMIT ANSWER =================
@@ -140,12 +128,19 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   ) => {
     if (!socket || !userId) return;
 
-    socket.emit('submit', {
+    socket.emit("submit", {
       roomId,
       problemId,
       userId,
       submission: optionSelected,
     });
+  };
+
+  // ================= LEAVE ROOM =================
+  const leaveRoom = () => {
+    setUserId(null);
+    setCurrentRoomId(null);
+    setQuizState({ type: "not_started" });
   };
 
   return (
@@ -158,9 +153,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
         currentRoomId,
         isConnected,
         joinRoom,
-        leaveRoom,
         submitAnswer,
-        createRoom,
+        leaveRoom,
       }}
     >
       {children}

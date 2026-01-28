@@ -1,20 +1,20 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from './ui/button';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   CardDescription,
-} from './ui/card';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { useSocket } from '../contexts/SocketContext';
+} from "./ui/card";
+import { Input } from "./ui/input";
+import { Label } from "./ui/label";
+import { useSocket } from "../contexts/SocketContext";
 
 export const Home = () => {
-  const [userName, setUserName] = useState('');
-  const [roomId, setRoomId] = useState('');
+  const [userName, setUserName] = useState("");
+  const [roomId, setRoomId] = useState("");
   const [joining, setJoining] = useState(false);
 
   const { joinRoom, isConnected } = useSocket();
@@ -25,13 +25,10 @@ export const Home = () => {
 
     setJoining(true);
 
-    // ✅ emit join event
-    joinRoom(roomId.trim(), userName.trim());
-
-    // ✅ wait briefly so socket init registers before route change
-    setTimeout(() => {
+    // ✅ FIX: Navigate ONLY after server confirms init
+    joinRoom(roomId.trim(), userName.trim(), () => {
       navigate(`/quiz/${roomId.trim()}`);
-    }, 100);
+    });
   };
 
   return (
@@ -69,7 +66,7 @@ export const Home = () => {
             disabled={!isConnected || !userName || !roomId || joining}
             onClick={handleJoinRoom}
           >
-            {joining ? 'Joining…' : 'Join Game'}
+            {joining ? "Joining…" : "Join Game"}
           </Button>
         </CardContent>
       </Card>

@@ -1,120 +1,138 @@
-import React from 'react';
+import React from "react";
 
 type Player = {
   id: string;
   name?: string;
-  stage: number; // 1 → 9
+  stage: number;
   color: string;
 };
 
 type Props = {
   players: Player[];
-  winnerId?: string | null;
+  winner?: any;
 };
 
-/**
- * 📍 PATH POSITIONS
- * 1–8 are INSIDE ROOM
- * 9 (Escaped) is OUTSIDE ROOM
- */
 const PATH = [
-  { x: 120, y: 120 },  // 1
-  { x: 300, y: 120 },  // 2
-  { x: 480, y: 120 },  // 3
-  { x: 480, y: 280 },  // 4
-  { x: 300, y: 280 },  // 5
-  { x: 120, y: 280 },  // 6
-  { x: 300, y: 440 },  // 7
-  { x: 480, y: 440 },  // 8 (last inside room)
-  { x: 700, y: 280 },  // 9 → ESCAPED (outside)
+  { x: 120, y: 120 },
+  { x: 300, y: 120 },
+  { x: 480, y: 120 },
+  { x: 480, y: 280 },
+  { x: 300, y: 280 },
+  { x: 120, y: 280 },
+  { x: 300, y: 440 },
+  { x: 480, y: 440 },
+  { x: 700, y: 280 }, // Escape Door
 ];
 
-export const MazeBoard: React.FC<Props> = ({ players, winnerId }) => {
+export const MazeBoard: React.FC<Props> = ({ players, winner }) => {
   return (
     <div className="relative w-full h-full bg-[#0b0b0b] overflow-hidden">
 
-      {/* 🧱 ROOM WALL */}
+      {/* ================= ROOM BORDER ================= */}
       <div
-        className="absolute border-4 border-amber-500 rounded-2xl bg-[#1a120d]"
+        className="absolute border-4 border-yellow-500 rounded-2xl"
+        style={{ left: 80, top: 80, width: 520, height: 520 }}
+      />
+
+      {/* ================= ESCAPE ROOM TITLE + LOGO ================= */}
+      <div
+        className="absolute flex items-center gap-3 px-4 py-2 
+        bg-black/70 border border-yellow-400 rounded-full shadow-lg"
         style={{
-          left: 80,
-          top: 80,
-          width: 520,
-          height: 520,
+          left: 200,
+          top: 30,
         }}
       >
-        {/* ROOM LABEL */}
-        <div className="absolute -top-6 left-1/2 -translate-x-1/2 
-          px-4 py-1 bg-black text-amber-400 border border-amber-400 rounded-full text-sm font-bold">
+        <img
+          src="/logo.png"
+          alt="Escape Room"
+          className="w-10 h-10"
+        />
+        <h1 className="text-yellow-300 font-extrabold text-xl tracking-wide">
           Escape Room
-        </div>
+        </h1>
       </div>
 
-      {/* 🧱 STAGES 1–8 (INSIDE ROOM) */}
-      {PATH.slice(0, 8).map((pos, i) => {
-        const stage = i + 1;
-
-        return (
-          <div
-            key={stage}
-            className="absolute w-28 h-36 rounded-xl border-4 
-              border-amber-400 bg-[#3e2723]"
-            style={{ left: pos.x, top: pos.y }}
-          >
-            <div
-              className="absolute -top-3 left-1/2 -translate-x-1/2
-              px-3 py-1 text-xs font-bold bg-black text-amber-400
-              border border-amber-400 rounded-full"
-            >
-              Stage {stage}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* 🚪 ESCAPED STAGE (OUTSIDE ROOM) */}
-      <div
-        className="absolute w-32 h-40 rounded-xl border-4
-          border-green-400 bg-green-500/10"
-        style={{
-          left: PATH[8].x,
-          top: PATH[8].y,
-        }}
-      >
+      {/* ================= STAGES WITH LOCKS ================= */}
+      {PATH.slice(0, 8).map((pos, i) => (
         <div
-          className="absolute -top-3 left-1/2 -translate-x-1/2
-          px-3 py-1 text-xs font-bold bg-black text-green-400
-          border border-green-400 rounded-full"
+          key={i}
+          className="absolute w-28 h-36 rounded-xl border-2 border-yellow-400
+          bg-[#2b1b14] flex flex-col items-center justify-center
+          shadow-lg"
+          style={{ left: pos.x, top: pos.y }}
         >
-          Escaped
-        </div>
+          <div className="text-yellow-300 font-bold text-sm">
+            Stage {i + 1}
+          </div>
 
-        <div className="absolute inset-0 flex items-center justify-center text-5xl animate-pulse">
-          🚪
+          {/* Lock Icon */}
+          <div className="text-3xl mt-3">🔒</div>
+
+          <p className="text-[10px] text-gray-300 mt-2">
+            Unlock by Answering
+          </p>
         </div>
+      ))}
+
+      {/* ================= ESCAPE DOOR (NO ANIMATION) ================= */}
+      <div
+        className="absolute w-40 h-48 rounded-xl border-4 border-green-400
+        flex flex-col items-center justify-center
+        bg-green-500/10 shadow-2xl"
+        style={{ left: PATH[8].x, top: PATH[8].y }}
+      >
+        {/* Door Icon */}
+        <div className="text-7xl">🚪</div>
+
+        {/* Door Label */}
+        <p className="mt-2 text-green-300 font-bold text-sm tracking-wide">
+          Escaped Room
+        </p>
+
+        <p className="text-xs text-green-200">
+          Winner Zone 👑
+        </p>
       </div>
 
-      {/* 🚶 PLAYERS */}
-      {players.map((player, index) => {
-        const pos = PATH[player.stage - 1] || PATH[0];
+      {/* ================= PLAYERS ================= */}
+      {players.map((p, idx) => {
+        const pos = PATH[p.stage - 1] || PATH[0];
 
         return (
           <div
-            key={player.id}
+            key={p.id}
             className={`absolute w-10 h-10 rounded-full border-2 border-white
-              flex items-center justify-center text-sm font-bold
-              transition-all duration-700 ease-in-out
-              ${player.color}
-              ${winnerId === player.id ? 'animate-bounce scale-125' : ''}`}
+            flex items-center justify-center font-bold text-sm
+            transition-all duration-700 ease-in-out ${p.color}`}
             style={{
-              left: pos.x + 45 + index * 18,
-              top: pos.y + 95,
+              left: pos.x + 40 + idx * 15,
+              top: pos.y + 70,
             }}
           >
-            {player.name?.[0] || 'P'}
+            {p.name?.[0]}
           </div>
         );
       })}
+
+      {/* ================= WINNER OVERLAY ================= */}
+      {winner && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-50">
+          <div className="text-7xl animate-bounce">👑</div>
+
+          <h1 className="text-4xl font-bold text-yellow-300 mt-3">
+            {winner.name} Escaped!
+          </h1>
+
+          <p className="text-2xl text-white mt-2">
+            Points: {winner.points}
+          </p>
+
+          <div className="text-6xl mt-6 animate-pulse">
+            🎆🎉🎇
+          </div>
+        </div>
+      )}
     </div>
   );
 };
