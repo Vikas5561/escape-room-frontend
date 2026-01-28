@@ -70,7 +70,6 @@ export const MazeBoard: React.FC<Props> = ({ players, winner }) => {
           <div className="text-3xl mt-3">🔒</div>
 
           <p className="text-[10px] text-gray-300 mt-2">
-            Unlock by Answering
           </p>
         </div>
       ))}
@@ -87,7 +86,7 @@ export const MazeBoard: React.FC<Props> = ({ players, winner }) => {
 
         {/* Door Label */}
         <p className="mt-2 text-green-300 font-bold text-sm tracking-wide">
-          Escaped Room
+          Escaped!!
         </p>
 
         <p className="text-xs text-green-200">
