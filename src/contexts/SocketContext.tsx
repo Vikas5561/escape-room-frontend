@@ -56,10 +56,28 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     setSocket(newSocket);
 
+    // ✅ Connection Status
     newSocket.on("connect", () => setIsConnected(true));
     newSocket.on("disconnect", () => setIsConnected(false));
 
-    // ✅ QUESTION EVENT (KEEP PLAYERS)
+    // ====================================================
+    // ✅ FORCE REJOIN EVENT (Admin Restart/Delete)
+    // ====================================================
+    newSocket.on("forceRejoin", () => {
+      console.log("⚠ Room restarted by Admin. Sending user back...");
+
+      // Clear everything
+      setUserId(null);
+      setCurrentRoomId(null);
+      setQuizState({ type: "not_started" });
+
+      // Redirect user back to Join page
+      window.location.href = "/";
+    });
+
+    // ====================================================
+    // ✅ QUESTION EVENT
+    // ====================================================
     newSocket.on("problem", (data) => {
       setQuizState((prev: any) => ({
         ...prev,
@@ -68,7 +86,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       }));
     });
 
+    // ====================================================
     // ✅ LEADERBOARD EVENT
+    // ====================================================
     newSocket.on("leaderboard", (data) => {
       setQuizState({
         type: "leaderboard",
@@ -77,7 +97,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     });
 
+    // ====================================================
     // ✅ WINNER EVENT
+    // ====================================================
     newSocket.on("winner", (data) => {
       setQuizState({
         type: "ended",
@@ -86,7 +108,9 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     });
 
+    // ====================================================
     // ✅ QUIZ ENDED EVENT
+    // ====================================================
     newSocket.on("ended", (data) => {
       setQuizState({
         type: "ended",
@@ -95,13 +119,25 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       });
     });
 
+    // ====================================================
+    // ✅ RESET EVENT (Room Deleted)
+    // ====================================================
+    newSocket.on("reset", () => {
+      console.log("Room reset received!");
+
+      setUserId(null);
+      setCurrentRoomId(null);
+      setQuizState({ type: "not_started" });
+    });
+
+    // Cleanup
     return () => {
       newSocket.removeAllListeners();
       newSocket.close();
     };
   }, []);
 
-  // ================= JOIN ROOM FIX =================
+  // ================= JOIN ROOM =================
   const joinRoom = (
     roomId: string,
     userName: string,
